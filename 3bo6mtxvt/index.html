@@ -1,0 +1,597 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lua Web 开发 - 利用Nginx的rewrite完成伪静态 | CandyMi的简笔客栈</title>
+<link rel="shortcut icon" href="https://candymi.github.io/favicon.ico?v=1649064019871">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://candymi.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="Lua Web 开发 - 利用Nginx的rewrite完成伪静态 | CandyMi的简笔客栈 - Atom Feed" href="https://candymi.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="前言
+撰写本文的初衷是因为有一些同学私下咨询过：关于动态链接如何的静态化的疑问.
+秉着分享的态度撰写了本文后, 希望大家能对Web开发有更深入的了解:
+
+
+本文将给大家介绍将动态链接地址转换为伪静态页面的做法.
+
+
+本文仅针对不支持rest..." />
+    <meta name="keywords" content="Lua,Nginx" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://candymi.github.io">
+  <img class="avatar" src="https://candymi.github.io/images/avatar.png?v=1649064019871" alt="">
+  </a>
+  <h1 class="site-title">
+    CandyMi的简笔客栈
+  </h1>
+  <p class="site-description">
+    此情可待成追忆, 只是当时已惘然.
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          目录
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          分类
+        </a>
+      
+    
+      
+        <a href="https://github.com/CandyMi" class="menu" target="_blank">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              Lua Web 开发 - 利用Nginx的rewrite完成伪静态
+            </h2>
+            <div class="post-info">
+              <span>
+                2020-05-11
+              </span>
+              <span>
+                12 min read
+              </span>
+              
+                <a href="https://candymi.github.io/3DNBNsTCZ/" class="post-tag">
+                  # Lua
+                </a>
+              
+                <a href="https://candymi.github.io/ifYxtr8ted/" class="post-tag">
+                  # Nginx
+                </a>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <h2 id="前言">前言</h2>
+<p>撰写本文的初衷是因为有一些同学私下咨询过：<code>关于动态链接如何的静态化的疑问</code>.</p>
+<p>秉着分享的态度撰写了本文后, 希望大家能对Web开发有更深入的了解:</p>
+<ul>
+<li>
+<p>本文将给大家介绍将动态链接地址转换为<code>伪静态</code>页面的做法.</p>
+</li>
+<li>
+<p>本文仅针对不支持<code>rest软件架构风格</code>的<code>web开发框架</code>提出<code>页面静态化</code>的解决方案.</p>
+</li>
+<li>
+<p>本文并不会对一些安装、开发细节提供描述, 这些细节需要大家自行学习与领悟.</p>
+</li>
+<li>
+<p>本文所述方法已经在业界已使用多年, 但并不意味着技术变迁与必要性. 只是侧面说明特殊业务场景并能提供不同的解决方案.</p>
+</li>
+</ul>
+<h2 id="一-测试环境">一、 测试环境</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align:center">名字</th>
+<th style="text-align:center">内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">环境</td>
+<td style="text-align:center">MAC OSX 10.15.3</td>
+</tr>
+<tr>
+<td style="text-align:center">版本</td>
+<td style="text-align:center">nginx/1.18.0</td>
+</tr>
+<tr>
+<td style="text-align:center">编译器</td>
+<td style="text-align:center">Apple clang version 11.0.0 (clang-1100.0.33.8)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="二-安装-nginx">二、 安装 Nginx</h2>
+<p>截止到目前为止(2020年5月9日), <code>Nginx</code>发布的最新版本为: 1.18.</p>
+<p>我们可以在<a href="http://nginx.org/en/download.html">这个页面</a>下载<code>Nginx</code>, 并解压到合适的目录完成编译与安装.</p>
+<p>安装完成后, 我们在安装的目录下面的<code>conf</code>可以找到<code>nginx.conf</code>配置文件!</p>
+<p>我们在倒数第二行增加了配置扩展目录, 这是为了区分<code>nginx</code>配置与<code>vhost</code>配置.</p>
+<pre><code class="language-bash">  worker_processes  1;
+
+  events {
+    worker_connections  1024;
+  }
+
+
+  http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '$remote_addr - $remote_user [$time_local] &quot;$request&quot; '
+                        '$status $body_bytes_sent &quot;$http_referer&quot; '
+                        '&quot;$http_user_agent&quot; &quot;$http_x_forwarded_for&quot;';
+
+    sendfile        on;
+
+    keepalive_timeout  65;
+
+    gzip  on;
+
+    include conf.d/*.conf;
+  }
+</code></pre>
+<p>现在我们在<code>nginx</code>安装目录下的<code>conf</code>目录内, 增加<code>conf.d</code>目录并在里面增加一个<code>vhost.conf</code>配置文件, 内容如下:</p>
+<pre><code class="language-bash">  server {
+    listen       80;
+    server_name  localhost;
+
+    access_log  logs/cfadmin.access.log  main;
+    error_log   logs/cfadmin.access.log  error;
+
+    location / {
+      root html;
+      index index.html;
+    }
+  }
+</code></pre>
+<p>在命令行输入: <code>nginx -t</code>, 如果输出结果如下, 则表示配置完成;</p>
+<pre><code class="language-bash">[candy@MacBookPro:~/Documents/nginx] $ sbin/nginx -t
+nginx: the configuration file /Users/candy/Documents/nginx/conf/nginx.conf syntax is ok
+nginx: configuration file /Users/candy/Documents/nginx/conf/nginx.conf test is successful
+[candy@MacBookPro:~/Documents/nginx] $
+</code></pre>
+<h2 id="三-编写一个简单的路由">三、编写一个简单的路由</h2>
+<p><code>cf</code>框架的入口文件<code>main.lua</code>修改为如下所示:</p>
+<pre><code class="language-bash">local httpd = require &quot;httpd&quot;
+
+local app = httpd:new(&quot;App&quot;)
+
+app:use(&quot;/articles&quot;, function (content)
+	content.args = type(content.args) == 'table' and content.args or {} 
+	return string.format([[
+		&lt;html&gt;
+		&lt;head&gt;
+		  &lt;title&gt;%s&lt;/title&gt;
+		&lt;/head&gt;
+			&lt;h1&gt;文章ID为: %d&lt;/h1&gt;
+			&lt;h2&gt;用户ID为: %d&lt;/h2&gt;
+		&lt;/html&gt;
+		]],
+		content.args['title'] or &quot;未找到title&quot;,
+		content.args['aid'] or &quot;无&quot;,
+		content.args['uid'] or &quot;无&quot;
+	)
+end)
+
+app:listen(&quot;0.0.0.0&quot;, 8080)
+
+app:run()
+</code></pre>
+<p>修改完成之后在命令行运行它.</p>
+<pre><code class="language-bash">[candy@MacBookPro:~/Documents/core_framework] $ ./cfadmin
+[2020/05/9 20:36:13] [INFO] httpd listen: 0.0.0.0:8080
+[2020/05/9 20:36:13] [INFO] httpd Web Server Running...
+</code></pre>
+<p>成功执行! 现在, 我们打开页面测试一下!<br>
+<img src="https://img-blog.csdnimg.cn/2020051000270397.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L015X0NhbmR5Uw==,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述" loading="lazy"><br>
+<img src="https://img-blog.csdnimg.cn/20200510002806604.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L015X0NhbmR5Uw==,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述" loading="lazy"><br>
+经过2次测试, 说明页面的路由配置已经完成.  现在我们尝试将其修改为伪静态!</p>
+<h2 id="四-nginx的rewrite规则">四、 Nginx的rewrite规则</h2>
+<p>原路由:<code>/articles?aid=100&amp;uid=1000&amp;title=测试页面</code></p>
+<p>修改后的路由: <code>/articles/100-1000-我的测试页面.html</code></p>
+<p>首先, 我们打开之前配置的<code>conf.d/vhost.conf</code> 添加一条如下规则:</p>
+<pre><code class="language-bash">  rewrite ^/articles/([\d]+)-([\d]+)-(.+).html /articles?aid=$1&amp;uid=$2&amp;title=$3 break;
+</code></pre>
+<p>然后将之前的location规则修改成这样:</p>
+<pre><code class="language-bash">  location / {
+    proxy_pass http://localhost:8080;
+    proxy_http_version 1.1;
+    proxy_ignore_client_abort on;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header Connection &quot;&quot;;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+</code></pre>
+<p>完整的<code>vhost.conf</code>应该是这样的:</p>
+<pre><code class="language-bash">server {
+  listen       80;
+  server_name  localhost;
+
+  access_log  logs/cfadmin.access.log  main;
+  error_log   logs/cfadmin.access.log  error;
+
+  rewrite ^/articles/([\d]+)-([\d]+)-(.+).html /articles?aid=$1&amp;uid=$2&amp;title=$3 break;
+
+  # rewrite ^/articles/([\d]+)-([\d]+)-(.+).html /articles?aid=$1&amp;uid=$2&amp;title=$3 redirect;
+
+  # rewrite ^/articles/([\d]+)-([\d]+)-(.+).html /articles?aid=$1&amp;uid=$2&amp;title=$3 permanent;
+
+  location / {
+    proxy_pass http://localhost:8080;
+    proxy_http_version 1.1;
+    proxy_ignore_client_abort on;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header Connection &quot;&quot;;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+}
+</code></pre>
+<p>我们在这里简单讲述一下这一条<code>rewrite</code>命令的含义:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center">命令</th>
+<th style="text-align:center">语法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">rewrite</td>
+<td style="text-align:center">rewrite regex replacement [flag];</td>
+</tr>
+<tr>
+<td style="text-align:center">默认值</td>
+<td style="text-align:center">none</td>
+</tr>
+<tr>
+<td style="text-align:center">位置</td>
+<td style="text-align:center">server、location、if</td>
+</tr>
+</tbody>
+</table>
+<p><code>rewrite</code> 命令主要用<code>【regex】</code>的正则表达式来对<code>URL</code>进行<code>匹配</code>/<code>提取</code>, 然后将请求转换为<code>【replacement】</code>的样式发送到后端代理的服务器.</p>
+<p>其中<code>flag</code>有以下这些常见的可选参数:</p>
+<ul>
+<li><code>break</code>表示本条规则匹配完成后终止，不在匹配任何规则;</li>
+<li><code>redirect</code> 使用<code>http 302 code</code>的方式跳转到<code>replacement</code>路由上;</li>
+<li><code>permanent</code> 使用<code>http 301 code</code>的方式跳转到<code>replacement</code>路由上;</li>
+</ul>
+<p>至此, 就完成了基本的伪静态操作!</p>
+<h2 id="五-测试">五、 测试</h2>
+<h4 id="1-break-flag">1. break flag</h4>
+<p>现在, 让我们使用<code>curl</code>命令来测试请求.</p>
+<p>值得一提的是: <code>curl</code>命令的<code>-i</code>与<code>-v</code>参数表示详细打印交互流程与输出结果到<code>终端(stdout)</code>.</p>
+<pre><code class="language-bash">[candy@MacBookPro:~] $ curl http://localhost/articles/100-1000-测试页面.html -i -v
+*   Trying ::1...
+* TCP_NODELAY set
+* Connection failed
+* connect to ::1 port 80 failed: Connection refused
+*   Trying 127.0.0.1...
+* TCP_NODELAY set
+* Connected to localhost (127.0.0.1) port 80 (#0)
+&gt; GET /articles/100-1000-测试页面.html HTTP/1.1
+&gt; Host: localhost
+&gt; User-Agent: curl/7.64.1
+&gt; Accept: */*
+&gt;
+&lt; HTTP/1.1 200 OK
+HTTP/1.1 200 OK
+&lt; Server: nginx/1.18.0
+Server: nginx/1.18.0
+&lt; Content-Type: text/html; charset=utf-8
+Content-Type: text/html; charset=utf-8
+&lt; Content-Length: 123
+Content-Length: 123
+&lt; Connection: keep-alive
+Connection: keep-alive
+&lt; Accept-Ranges: none
+Accept-Ranges: none
+&lt; Origin: *
+Origin: *
+&lt; Allow: GET, POST, PUT, HEAD, OPTIONS
+Allow: GET, POST, PUT, HEAD, OPTIONS
+&lt; Cache-Control: no-cache, no-store, must-revalidate
+Cache-Control: no-cache, no-store, must-revalidate
+
+&lt;
+	&lt;html&gt;
+	&lt;head&gt;
+	  &lt;title&gt;测试页面&lt;/title&gt;
+	&lt;/head&gt;
+		&lt;h1&gt;文章ID为: 100&lt;/h1&gt;
+		&lt;h2&gt;用户ID为: 1000&lt;/h2&gt;
+	&lt;/html&gt;
+* Connection #0 to host localhost left intact
+* Closing connection 0
+[candy@MacBookPro:~] $
+</code></pre>
+<p>我们可以看到伪静态已经配置成功.  现在我们看下<code>cf</code>框架里的日志输出:</p>
+<pre><code class="language-bash">[candy@MacBookPro:~/Documents/core_framework] $ ./cfadmin
+[2020/05/9 20:36:13] [INFO] httpd listen: 0.0.0.0:8080
+[2020/05/9 20:36:13] [INFO] httpd Web Server Running...
+[2020/05/9 20:40:24] - 127.0.0.1 - 127.0.0.1 - /articles?aid=100&amp;uid=1000&amp;title=测试页面 - GET - 200 - req_time: 0.000065/Sec
+</code></pre>
+<p>我们从输出结果中可以看到, 修改后的路由也正确的被识别到了!</p>
+<p>可能有一些细心的同学发现了, 我们还有2个被注释掉的<code>301</code>与<code>302</code>的规则.</p>
+<p>现在我们来看看把flag改为<code>redirect</code>或<code>permanent</code>与<code>break</code>之间的输出差异吧!</p>
+<h4 id="2-redirect-flag">2. redirect flag</h4>
+<p>首先是<code>redirect</code>, 我们将<code>break</code>与<code>permanent</code>注释, 重启<code>Nginx</code>后再次发送请求:</p>
+<pre><code class="language-bash">server {
+  listen       80;
+  server_name  localhost;
+
+  access_log  logs/cfadmin.access.log  main;
+  error_log   logs/cfadmin.access.log  error;
+
+  # rewrite ^/articles/([\d]+)-([\d]+)-(.+).html /articles?aid=$1&amp;uid=$2&amp;title=$3 break;
+
+  rewrite ^/articles/([\d]+)-([\d]+)-(.+).html /articles?aid=$1&amp;uid=$2&amp;title=$3 redirect;
+
+  # rewrite ^/articles/([\d]+)-([\d]+)-(.+).html /articles?aid=$1&amp;uid=$2&amp;title=$3 permanent;
+
+  location / {
+    proxy_pass http://localhost:8080;
+    proxy_http_version 1.1;
+    proxy_ignore_client_abort on;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header Connection &quot;&quot;;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+}
+</code></pre>
+<p>执行<code>curl</code>命令查看输出结果:</p>
+<pre><code class="language-bash">[candy@MacBookPro:~] $ curl http://localhost/articles/100-1000-测试页面.html -i -v
+*   Trying ::1...
+* TCP_NODELAY set
+* Connection failed
+* connect to ::1 port 80 failed: Connection refused
+*   Trying 127.0.0.1...
+* TCP_NODELAY set
+* Connected to localhost (127.0.0.1) port 80 (#0)
+&gt; GET /articles/100-1000-测试页面.html HTTP/1.1
+&gt; Host: localhost
+&gt; User-Agent: curl/7.64.1
+&gt; Accept: */*
+&gt;
+&lt; HTTP/1.1 302 Moved Temporarily
+HTTP/1.1 302 Moved Temporarily
+&lt; Server: nginx/1.18.0
+Server: nginx/1.18.0
+&lt; Content-Type: text/html
+Content-Type: text/html
+&lt; Content-Length: 145
+Content-Length: 145
+&lt; Location: http://localhost/articles?aid=100&amp;uid=1000&amp;title=测试页面
+Location: http://localhost/articles?aid=100&amp;uid=1000&amp;title=测试页面
+&lt; Connection: keep-alive
+Connection: keep-alive
+
+&lt;
+&lt;html&gt;
+&lt;head&gt;&lt;title&gt;302 Found&lt;/title&gt;&lt;/head&gt;
+&lt;body&gt;
+&lt;center&gt;&lt;h1&gt;302 Found&lt;/h1&gt;&lt;/center&gt;
+&lt;hr&gt;&lt;center&gt;nginx/1.18.0&lt;/center&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+* Connection #0 to host localhost left intact
+* Closing connection 0
+[candy@MacBookPro:~] $
+</code></pre>
+<h4 id="3-permanent-flag">3. permanent flag</h4>
+<p>最后就是<code>permanent</code>, 我们将<code>break</code>与<code>redirect</code>注释, 重启<code>Nginx</code>后再次发送请求:</p>
+<pre><code class="language-bash">server {
+  listen       80;
+  server_name  localhost;
+
+  access_log  logs/cfadmin.access.log  main;
+  error_log   logs/cfadmin.access.log  error;
+
+  # rewrite ^/articles/([\d]+)-([\d]+)-(.+).html /articles?aid=$1&amp;uid=$2&amp;title=$3 break;
+
+  # rewrite ^/articles/([\d]+)-([\d]+)-(.+).html /articles?aid=$1&amp;uid=$2&amp;title=$3 redirect;
+
+  rewrite ^/articles/([\d]+)-([\d]+)-(.+).html /articles?aid=$1&amp;uid=$2&amp;title=$3 permanent;
+
+  location / {
+    proxy_pass http://localhost:8080;
+    proxy_http_version 1.1;
+    proxy_ignore_client_abort on;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header Connection &quot;&quot;;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+}
+</code></pre>
+<p>执行<code>curl</code>命令查看输出结果:</p>
+<pre><code class="language-bash">[candy@MacBookPro:~] $ curl http://localhost/articles/100-1000-测试页面.html -i -v
+*   Trying ::1...
+* TCP_NODELAY set
+* Connection failed
+* connect to ::1 port 80 failed: Connection refused
+*   Trying 127.0.0.1...
+* TCP_NODELAY set
+* Connected to localhost (127.0.0.1) port 80 (#0)
+&gt; GET /articles/100-1000-测试页面.html HTTP/1.1
+&gt; Host: localhost
+&gt; User-Agent: curl/7.64.1
+&gt; Accept: */*
+&gt;
+&lt; HTTP/1.1 301 Moved Permanently
+HTTP/1.1 301 Moved Permanently
+&lt; Server: nginx/1.18.0
+Server: nginx/1.18.0
+&lt; Content-Type: text/html
+Content-Type: text/html
+&lt; Content-Length: 169
+Content-Length: 169
+&lt; Location: http://localhost/articles?aid=100&amp;uid=1000&amp;title=测试页面
+Location: http://localhost/articles?aid=100&amp;uid=1000&amp;title=测试页面
+&lt; Connection: keep-alive
+Connection: keep-alive
+
+&lt;
+&lt;html&gt;
+&lt;head&gt;&lt;title&gt;301 Moved Permanently&lt;/title&gt;&lt;/head&gt;
+&lt;body&gt;
+&lt;center&gt;&lt;h1&gt;301 Moved Permanently&lt;/h1&gt;&lt;/center&gt;
+&lt;hr&gt;&lt;center&gt;nginx/1.18.0&lt;/center&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+* Connection #0 to host localhost left intact
+* Closing connection 0
+[candy@MacBookPro:~] $
+</code></pre>
+<h4 id="4-结论">4. 结论</h4>
+<ul>
+<li>
+<p><code>break</code> 会将用户请求修改后直接发送到后端服务器, 同时得到结果后原样返回给客户端.</p>
+</li>
+<li>
+<p><code>redirect/permanent</code> 则会根据匹配的规则, 返回<code>301/302</code>重定向引导客户端再次发起访问.</p>
+</li>
+</ul>
+<p><code>break</code>显然就是我们需要实现的页面静态化方案, <code>redirect/permanent</code>更常用于地址转移后<code>优雅</code>的解决访问失败的情况.</p>
+<p>至此为止, 本文所讲述的Nginx利用rewrite命令实现伪静态的功能已经完成.</p>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li>
+<ul>
+<li><a href="#%E5%89%8D%E8%A8%80">前言</a></li>
+<li><a href="#%E4%B8%80-%E6%B5%8B%E8%AF%95%E7%8E%AF%E5%A2%83">一、 测试环境</a></li>
+<li><a href="#%E4%BA%8C-%E5%AE%89%E8%A3%85-nginx">二、 安装 Nginx</a></li>
+<li><a href="#%E4%B8%89-%E7%BC%96%E5%86%99%E4%B8%80%E4%B8%AA%E7%AE%80%E5%8D%95%E7%9A%84%E8%B7%AF%E7%94%B1">三、编写一个简单的路由</a></li>
+<li><a href="#%E5%9B%9B-nginx%E7%9A%84rewrite%E8%A7%84%E5%88%99">四、 Nginx的rewrite规则</a></li>
+<li><a href="#%E4%BA%94-%E6%B5%8B%E8%AF%95">五、 测试</a><br>
+*
+<ul>
+<li><a href="#1-break-flag">1. break flag</a></li>
+<li><a href="#2-redirect-flag">2. redirect flag</a></li>
+<li><a href="#3-permanent-flag">3. permanent flag</a></li>
+<li><a href="#4-%E7%BB%93%E8%AE%BA">4. 结论</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://candymi.github.io/Gjlq-u1G5/">
+              <h3 class="post-title">
+                为skynet移植一个lua-websocke库
+              </h3>
+            </a>
+          </div>
+        
+
+        
+
+        <div class="site-footer">
+  Powered by  <a href="https://github.com/CandyMi" target="_blank"> 
+  CandyMi</a>
+  <a class="rss" href="https://candymi.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

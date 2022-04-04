@@ -1,0 +1,223 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>为skynet移植一个lua-websocke库 | CandyMi的简笔客栈</title>
+<link rel="shortcut icon" href="https://candymi.github.io/favicon.ico?v=1649064019871">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://candymi.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="为skynet移植一个lua-websocke库 | CandyMi的简笔客栈 - Atom Feed" href="https://candymi.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="简介
+目前大部分游戏、移动互联网、H5客户端主要由JavaScript、Lua、C#、C++等语言进行逻辑开发, 其主要通讯方案便是基于HTTP协议的接口请求与Websocket的推送方案.
+起因
+skynet内部实现了一套同步非阻塞soc..." />
+    <meta name="keywords" content="skynet,websocket" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://candymi.github.io">
+  <img class="avatar" src="https://candymi.github.io/images/avatar.png?v=1649064019871" alt="">
+  </a>
+  <h1 class="site-title">
+    CandyMi的简笔客栈
+  </h1>
+  <p class="site-description">
+    此情可待成追忆, 只是当时已惘然.
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          目录
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          分类
+        </a>
+      
+    
+      
+        <a href="https://github.com/CandyMi" class="menu" target="_blank">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              为skynet移植一个lua-websocke库
+            </h2>
+            <div class="post-info">
+              <span>
+                2019-06-22
+              </span>
+              <span>
+                5 min read
+              </span>
+              
+                <a href="https://candymi.github.io/skynet/" class="post-tag">
+                  # skynet
+                </a>
+              
+                <a href="https://candymi.github.io/websocket/" class="post-tag">
+                  # websocket
+                </a>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <h2 id="简介">简介</h2>
+<p>目前大部分游戏、移动互联网、H5客户端主要由<code>JavaScript</code>、<code>Lua</code>、<code>C#</code>、<code>C++</code>等语言进行逻辑开发, 其主要通讯方案便是基于<code>HTTP</code>协议的接口请求与<code>Websocket</code>的推送方案.</p>
+<h2 id="起因">起因</h2>
+<p><code>skynet</code>内部实现了一套同步非阻塞<code>socket</code>库, 并且提供了<code>TCP</code>通讯方案进行数据流分割.  所谓的TCP数据流<code>分割</code>. 就是根据一定方式读取数据的一种流程.</p>
+<p>最为常见的数据分割方案应该是: 2字节头部 + 数据载荷. 另一种通用方案是将头部扩展为4字节, 这样在头部信息中可以包含协议版本或者消息类型还可以进行平滑的进行协议升级扩展.</p>
+<p>这些方案一般用于定制<code>C/S</code>网络协议. 绝大多数场景中并没有必须使用到这个场景, 且维护一套这样的协议也是需要占用开发周期的.本人也使用过国内的开发者基于skynet编写的websockket开发库. 就使用上来说效果不是很理想, 且期间遇到的一系列问题也需要自己实际定制化后才能解决.</p>
+<p>刚好近期正在为自己开发的Lua Web框架编写教程, 那么干脆趁这个机会将它实现的<code>Websocket</code>协议库也移植到<code>skynet</code>上去.</p>
+<p>编写完成后, 我将它随意的命名为: <code>skynet-lua-websocket</code>.</p>
+<h2 id="开始移植工作">开始移植工作</h2>
+<h3 id="1-握手流程">1. 握手流程</h3>
+<p><code>skynet</code>要使用<code>Websocket</code>协议进行通讯需要实现<code>HTTP/1.1</code>版本中<code>101</code>响应方法. <code>skyent.httpd</code>库可以完成HTTP协议的解析工作, 但我并没有使用到它.</p>
+<p>究其原因是因为websocket实现交互并不复杂且所以无需依赖其它应用层协议库的实现. 而且HTTP本身就是一个基于文本的交互协议, 我们可以通过数据分割读取来完成更加快速的握手协议解析工作.</p>
+<p>当连接到来时我们需要定义一个方法来处理握手协议交互(do_handshak). 在握手期间我们需要等待客户端发送有效的HTTP请求数据(协议、方法、版本、头部等等).</p>
+<p>在握手期间我们不能忘记给它加上一个超时限制(set_timeout), 这个限制需要然客户端在指定时间范围内完成握手. 否则, 只能断开连接来节省服务器资源开销.</p>
+<p>当HTTP请求数据接收完毕后, 我们需要对头部信息进行简单的验证. 这个验证过程并不会很复杂, 因为我们只需要知道头部信息是否完整有效即可.</p>
+<p>在验证完成与通过的时候, 我们需要返回一个协议升级成功的101回应来通知客户端, 可以使用websocket规定的协议进行通讯并且开始监听链接是否有数据即可.</p>
+<h3 id="2-消息交互">2. 消息交互</h3>
+<p><code>Websocket</code>协议规范中定义了一些常用的消息(控制帧). 目前为止, 我们也仅需要使用到这些消息: <code>text</code>、<code>binary</code>、<code>ping</code>、<code>pong</code>、<code>close</code>.</p>
+<p><code>text/binary</code>可以分为一种客户端请求消息, 它定义了客户端发送到服务端的数据是什么类型. 这通常在项目开发初期已经约定好传输协议, 所以无需过多考虑.</p>
+<p><code>ping/pong</code>通常是成对出现的; 它一般用作心跳检查(虽然没有人这样做)与交互测试工作.</p>
+<p><code>close</code>一般主动推送关闭消息, 一般情况下接收到这样的消息的处理方式为关闭连接.</p>
+<h3 id="3-事件处理">3. 事件处理</h3>
+<p>事件处理方式就仿照JavaScript设计定义了4种回调函数类型(<code>on_open</code>、 <code>on_message</code>、 <code>on_error</code>、<code>on_close</code>), 这样能简化代码编写难度.</p>
+<p>在每个客户端连接到来的时候为用户初始化<code>ctor</code>方法并为其注入<code>ws</code>对象用于与客户端进行通讯(<code>send</code>、<code>close</code>). 当客户端连接建立完成后会在应用层触发<code>open</code>方法, 让开发者此时做一些相关的初始化的操作.</p>
+<p>期间与客户端连接保持的期间内定义了<code>on_message</code>方法用于接收客户端的数据, 对需要回应的数据可以使用<code>self.ws:send</code>方法进行消息回应.</p>
+<p>最后, 我们可以在连接完成(断开)的时候触发<code>on_close</code>方法, 集中式资源回收更加简单.</p>
+<h2 id="使用方法">使用方法</h2>
+<p>可以通过<a href="https://github.com/CandyMi/skynet-lua-websocket/blob/master/README.md">这里</a>的描述学习如何使用它.</p>
+<h2 id="下载">下载</h2>
+<p>项目地址在<a href="https://github.com/CandyMi/skynet-lua-websocket">这里</a>.</p>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li>
+<ul>
+<li><a href="#%E7%AE%80%E4%BB%8B">简介</a></li>
+<li><a href="#%E8%B5%B7%E5%9B%A0">起因</a></li>
+<li><a href="#%E5%BC%80%E5%A7%8B%E7%A7%BB%E6%A4%8D%E5%B7%A5%E4%BD%9C">开始移植工作</a>
+<ul>
+<li><a href="#1-%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B">1. 握手流程</a></li>
+<li><a href="#2-%E6%B6%88%E6%81%AF%E4%BA%A4%E4%BA%92">2. 消息交互</a></li>
+<li><a href="#3-%E4%BA%8B%E4%BB%B6%E5%A4%84%E7%90%86">3. 事件处理</a></li>
+</ul>
+</li>
+<li><a href="#%E4%BD%BF%E7%94%A8%E6%96%B9%E6%B3%95">使用方法</a></li>
+<li><a href="#%E4%B8%8B%E8%BD%BD">下载</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://candymi.github.io/QAwLk9b1V/">
+              <h3 class="post-title">
+                Linux 使用unzip命令从压缩文件中解压出指定目录或文件
+              </h3>
+            </a>
+          </div>
+        
+
+        
+
+        <div class="site-footer">
+  Powered by  <a href="https://github.com/CandyMi" target="_blank"> 
+  CandyMi</a>
+  <a class="rss" href="https://candymi.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

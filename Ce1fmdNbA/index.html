@@ -1,0 +1,314 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CentOS 6 在2020年服务到期后的备用方法 | CandyMi的简笔客栈</title>
+<link rel="shortcut icon" href="https://candymi.github.io/favicon.ico?v=1649064019871">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://candymi.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="CentOS 6 在2020年服务到期后的备用方法 | CandyMi的简笔客栈 - Atom Feed" href="https://candymi.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="一、维护到期
+
+官方便在2020年12月2日正式将CentOS 6相关的软件源移出了官方源, 和之前CentOS 5一样随之而来逐级镜像也会陆续将其删除。
+其实早2020年的中旬这一消息就已经发布但这并没有引起&quot;重视&quot;,..." />
+    <meta name="keywords" content="Linux" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://candymi.github.io">
+  <img class="avatar" src="https://candymi.github.io/images/avatar.png?v=1649064019871" alt="">
+  </a>
+  <h1 class="site-title">
+    CandyMi的简笔客栈
+  </h1>
+  <p class="site-description">
+    此情可待成追忆, 只是当时已惘然.
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          目录
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          分类
+        </a>
+      
+    
+      
+        <a href="https://github.com/CandyMi" class="menu" target="_blank">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              CentOS 6 在2020年服务到期后的备用方法
+            </h2>
+            <div class="post-info">
+              <span>
+                2021-01-21
+              </span>
+              <span>
+                6 min read
+              </span>
+              
+                <a href="https://candymi.github.io/TDDjyfCtI/" class="post-tag">
+                  # Linux
+                </a>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <h2 id="一-维护到期">一、维护到期</h2>
+<hr>
+<p>官方便在2020年12月2日正式将CentOS 6相关的软件源移出了官方源, 和之前CentOS 5一样随之而来逐级镜像也会陆续将其删除。</p>
+<p>其实早2020年的中旬这一消息就已经发布但这并没有引起&quot;重视&quot;, 毕竟还有用户使用的挂在物理镜像与私有镜像维护了在内部.</p>
+<h2 id="二-使用问题">二、使用问题</h2>
+<hr>
+<p>众所周知网上有些同学还停留在CentOS 6.X版本, 并且服务器中可能还运行这一些带有历史痕迹的软件在提供一些小范围服务.</p>
+<p>这些软件对操作系统版本和内核的更新过于敏感，贸然的进行底层架构的迭代可能会对一些服务造成维护的<code>停顿</code>甚至<code>停止</code>。</p>
+<p>所以我们需要一些看起来更加可靠的方案来继续维护, 也希望我们可以以联网的方式来提供更加方便的在线安装.</p>
+<h2 id="三-解决方法">三、解决方法</h2>
+<hr>
+<p>目前网上存在的解决方法分为2种:</p>
+<ul>
+<li>
+<p>使用官方的<code>vault</code>源来继续提供在线服务;</p>
+</li>
+<li>
+<p>使用国内的一些云平台提供的服务;</p>
+</li>
+</ul>
+<p>第一种方法针对国情不够友好, 并且国外的跨海网络连接普遍延迟较高. 有在线下载和安装的时间, 一些同学使用手动依赖的方式都装完十几次了.</p>
+<p>第二种方法是临时并且目前有效(2021-01-21), 可以提供CentOS BASE与EPEL源的支持并且测试有效. 如果此方法已失效, 那么建议还是更新到最新版.</p>
+<h2 id="四-操作步骤">四、操作步骤</h2>
+<ol>
+<li>首先删除原有的<code>/etc/yum.repos.d/CentOS-Base.repo</code>文件，然后将下面的文件内容写入到文件内, <code>6.10</code>可以改成实际的系统版本, <code>$basearch</code>可以改成你的平台架构:</li>
+</ol>
+<pre><code class="language-bash">[base]
+name=CentOS-$releasever - Base - mirrors.aliyun.com
+failovermethod=priority
+baseurl=http://mirrors.aliyun.com/centos-vault/6.10/os/$basearch/
+gpgcheck=1
+gpgkey=http://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-6
+
+#released updates
+[updates]
+name=CentOS-$releasever - Updates - mirrors.aliyun.com
+failovermethod=priority
+baseurl=http://mirrors.aliyun.com/centos-vault/6.10/updates/$basearch/
+gpgcheck=1
+gpgkey=http://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-6
+
+#additional packages that may be useful
+[extras]
+name=CentOS-$releasever - Extras - mirrors.aliyun.com
+failovermethod=priority
+baseurl=http://mirrors.aliyun.com/centos-vault/6.10/extras/$basearch/
+gpgcheck=1
+gpgkey=http://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-6
+
+#additional packages that extend functionality of existing packages
+[centosplus]
+name=CentOS-$releasever - Plus - mirrors.aliyun.com
+failovermethod=priority
+baseurl=http://mirrors.aliyun.com/centos-vault/6.10/centosplus/$basearch/
+gpgcheck=1
+enabled=0
+gpgkey=http://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-6
+
+#contrib - packages by Centos Users
+[contrib]
+name=CentOS-$releasever - Contrib - mirrors.aliyun.com
+failovermethod=priority
+baseurl=http://mirrors.aliyun.com/centos-vault/6.10/contrib/$basearch/
+gpgcheck=1
+enabled=0
+gpgkey=http://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-6
+</code></pre>
+<ol start="2">
+<li>因为epel也是无法使用的, 所以我们还要按照<a href="https://mirrors.cloud.tencent.com/help/epel.html">这里</a>的提示安装EPEL源(其它平台需要自行验证). 也可以将下面的内容替换:</li>
+</ol>
+<pre><code class="language-bash">[epel]
+name=epel for redhat/centos $releasever - $basearch
+baseurl=http://mirrors.cloud.tencent.com/epel/$releasever/$basearch/
+failovermethod=priority
+enabled=1
+gpgcheck=1
+gpgkey=http://mirrors.cloud.tencent.com/epel/RPM-GPG-KEY-EPEL-6
+</code></pre>
+<ol start="3">
+<li>使用命令<code>yum clean all</code>(清理缓存)与<code>yum makecache</code>生成缓存. 结果应该如下所示.</li>
+</ol>
+<pre><code class="language-bash">[root@iZbp1g11g0cdejnu9y7yg7Z ~]# yum makecache
+Loaded plugins: security
+base                                                                                                                                        | 3.7 kB     00:00
+base/group_gz                                                                                                                               | 242 kB     00:00
+base/filelists_db                                                                                                                           | 6.4 MB     00:00
+base/primary_db                                                                                                                             | 4.7 MB     00:00
+base/other_db                                                                                                                               | 2.8 MB     00:00
+epel                                                                                                                                        | 4.7 kB     00:00
+epel/group_gz                                                                                                                               |  74 kB     00:00
+epel/filelists_db                                                                                                                           | 7.9 MB     00:01
+epel/prestodelta                                                                                                                            |  574 B     00:00
+epel/primary_db                                                                                                                             | 6.1 MB     00:00
+epel/other_db                                                                                                                               | 3.0 MB     00:01
+extras                                                                                                                                      | 3.4 kB     00:00
+extras/filelists_db                                                                                                                         |  24 kB     00:00
+extras/prestodelta                                                                                                                          | 2.2 kB     00:00
+extras/primary_db                                                                                                                           |  29 kB     00:00
+extras/other_db                                                                                                                             |  14 kB     00:00
+mysql-connectors-community                                                                                                                  | 2.6 kB     00:02
+mysql-connectors-community/filelists_db                                                                                                     |  87 kB     00:03
+mysql-connectors-community/primary_db                                                                                                       |  61 kB     00:03
+mysql-connectors-community/other_db                                                                                                         |  14 kB     00:00
+mysql-tools-community                                                                                                                       | 2.6 kB     00:00
+mysql-tools-community/filelists_db                                                                                                          | 243 kB     00:07
+mysql-tools-community/primary_db                                                                                                            |  65 kB     00:01
+mysql-tools-community/other_db                                                                                                              |  17 kB     00:00
+mysql57-community                                                                                                                           | 2.6 kB     00:00
+mysql57-community/filelists_db                                                                                                              | 1.5 MB     00:32
+mysql57-community/primary_db                                                                                                                | 257 kB     00:04
+mysql57-community/other_db                                                                                                                  |  68 kB     00:01
+updates                                                                                                                                     | 3.4 kB     00:00
+updates/filelists_db                                                                                                                        | 8.4 MB     00:00
+updates/prestodelta                                                                                                                         | 357 kB     00:00
+updates/primary_db                                                                                                                          |  12 MB     00:01
+updates/other_db                                                                                                                            | 479 kB     00:00
+webtatic                                                                                                                                    | 3.6 kB     00:00
+webtatic/group_gz                                                                                                                           |  374 B     00:00
+webtatic/filelists_db                                                                                                                       | 121 kB     00:03
+webtatic/primary_db                                                                                                                         | 229 kB     00:07
+webtatic/other_db                                                                                                                           |  60 kB     00:01
+Metadata Cache Created
+[root@iZbp1g11g0cdejnu9y7yg7Z ~]# cat /etc/redhat-release
+CentOS release 6.10 (Final)
+[root@iZbp1g11g0cdejnu9y7yg7Z ~]#
+</code></pre>
+<h2 id="四-最后">四、最后</h2>
+<hr>
+<p>虽然上述办法可以临时解决问题, 但是笔者认为这也只是给予老用户在时间上有一个技术过度期. 并且从理论上来说，开发者编写的代码耦合度不应该与版本、系统、环境有太大的关系.</p>
+<p>在2010年之前的许多软件都存在有类似的系统依赖性问题, 而开发者需要让使用者有更大的技术可控性，这样就能让使用者在生产环境中对技术的把控与融合有更加宽阔的选择。</p>
+<p>以上。</p>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li>
+<ul>
+<li><a href="#%E4%B8%80-%E7%BB%B4%E6%8A%A4%E5%88%B0%E6%9C%9F">一、维护到期</a></li>
+<li><a href="#%E4%BA%8C-%E4%BD%BF%E7%94%A8%E9%97%AE%E9%A2%98">二、使用问题</a></li>
+<li><a href="#%E4%B8%89-%E8%A7%A3%E5%86%B3%E6%96%B9%E6%B3%95">三、解决方法</a></li>
+<li><a href="#%E5%9B%9B-%E6%93%8D%E4%BD%9C%E6%AD%A5%E9%AA%A4">四、操作步骤</a></li>
+<li><a href="#%E5%9B%9B-%E6%9C%80%E5%90%8E">四、最后</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://candymi.github.io/cbRl4lbfY/">
+              <h3 class="post-title">
+                为skynet的crypt库扩展一些加密(摘要)算法支持
+              </h3>
+            </a>
+          </div>
+        
+
+        
+
+        <div class="site-footer">
+  Powered by  <a href="https://github.com/CandyMi" target="_blank"> 
+  CandyMi</a>
+  <a class="rss" href="https://candymi.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

@@ -1,0 +1,185 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Linux 使用unzip命令从压缩文件中解压出指定目录或文件 | CandyMi的简笔客栈</title>
+<link rel="shortcut icon" href="https://candymi.github.io/favicon.ico?v=1649064019871">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://candymi.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="Linux 使用unzip命令从压缩文件中解压出指定目录或文件 | CandyMi的简笔客栈 - Atom Feed" href="https://candymi.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="相信很多同学都遇到过这样一个问题:
+
+我的冷备份压缩包高达几十上百G, 当我不小心删除了某个文件需要恢复的时候. 需要解压全部文件. 有没有办法加速这个动作?
+
+为了几MB的文件解压所有打包这个这个动作肯定是不可取的, 那么unzip提供了..." />
+    <meta name="keywords" content="Linux,shell" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://candymi.github.io">
+  <img class="avatar" src="https://candymi.github.io/images/avatar.png?v=1649064019871" alt="">
+  </a>
+  <h1 class="site-title">
+    CandyMi的简笔客栈
+  </h1>
+  <p class="site-description">
+    此情可待成追忆, 只是当时已惘然.
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          目录
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          分类
+        </a>
+      
+    
+      
+        <a href="https://github.com/CandyMi" class="menu" target="_blank">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              Linux 使用unzip命令从压缩文件中解压出指定目录或文件
+            </h2>
+            <div class="post-info">
+              <span>
+                2019-06-15
+              </span>
+              <span>
+                1 min read
+              </span>
+              
+                <a href="https://candymi.github.io/TDDjyfCtI/" class="post-tag">
+                  # Linux
+                </a>
+              
+                <a href="https://candymi.github.io/OaRxw3uNpC/" class="post-tag">
+                  # shell
+                </a>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <p>相信很多同学都遇到过这样一个问题:</p>
+<blockquote>
+<p>我的冷备份压缩包高达几十上百G, 当我不小心删除了某个文件需要恢复的时候. 需要解压全部文件. 有没有办法加速这个动作?</p>
+</blockquote>
+<p>为了几MB的文件解压所有打包这个这个动作肯定是不可取的, 那么<code>unzip</code>提供了这个操作么?</p>
+<p>是的, unzip确实提供了这个选项. 现在请记住下面的伪命令:</p>
+<pre><code>`unzip &lt;Your zip file&gt; &quot;*mobile/要解压的文件&quot; -d &lt;要解压的目录&gt;`
+</code></pre>
+<ul>
+<li>
+<p><code>*</code> ： 可以使用*做通配符.</p>
+</li>
+<li>
+<p><code>-d</code> ： 后面跟上你要解压文件的目录.</p>
+</li>
+</ul>
+<p>这样就解决了快速解压的问题.</p>
+
+              </div>
+              <div class="toc-container">
+                
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+
+        
+
+        <div class="site-footer">
+  Powered by  <a href="https://github.com/CandyMi" target="_blank"> 
+  CandyMi</a>
+  <a class="rss" href="https://candymi.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

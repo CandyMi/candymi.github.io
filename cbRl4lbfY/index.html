@@ -1,0 +1,219 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>为skynet的crypt库扩展一些加密(摘要)算法支持 | CandyMi的简笔客栈</title>
+<link rel="shortcut icon" href="https://candymi.github.io/favicon.ico?v=1649064019871">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://candymi.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="为skynet的crypt库扩展一些加密(摘要)算法支持 | CandyMi的简笔客栈 - Atom Feed" href="https://candymi.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="改造起因
+之前我描述了为skynet添加稳定的websocket支持的起始并阐述了这么做的原因.
+这几天在测试的时候发现, 当使用skynet内置的httpc库的时候会遇见crypt缺少一些我需要用到的算法(例如: crc、sha256、h..." />
+    <meta name="keywords" content="crypto,skynet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://candymi.github.io">
+  <img class="avatar" src="https://candymi.github.io/images/avatar.png?v=1649064019871" alt="">
+  </a>
+  <h1 class="site-title">
+    CandyMi的简笔客栈
+  </h1>
+  <p class="site-description">
+    此情可待成追忆, 只是当时已惘然.
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          目录
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          分类
+        </a>
+      
+    
+      
+        <a href="https://github.com/CandyMi" class="menu" target="_blank">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              为skynet的crypt库扩展一些加密(摘要)算法支持
+            </h2>
+            <div class="post-info">
+              <span>
+                2020-07-03
+              </span>
+              <span>
+                5 min read
+              </span>
+              
+                <a href="https://candymi.github.io/crypto/" class="post-tag">
+                  # crypto
+                </a>
+              
+                <a href="https://candymi.github.io/skynet/" class="post-tag">
+                  # skynet
+                </a>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <h2 id="改造起因">改造起因</h2>
+<p>之前我描述了为<code>skynet</code>添加稳定的<code>websocket</code>支持的起始并阐述了这么做的原因.</p>
+<p>这几天在测试的时候发现, 当使用<code>skynet</code>内置的httpc库的时候会遇见<code>crypt</code>缺少一些我需要用到的算法(例如: <code>crc</code>、<code>sha256</code>、<code>hmac_sha256</code>等等).</p>
+<p>这里完全可以假设开发者在框架选型的时候没发现这个问题, 那可能会到开发中期需要第三方平台接入或扩展不同架构的时候才可能会发现了.</p>
+<p>显然这将会在无形之中就会给一个项目引入不可预料的稳定性因素. 为了尽可能的避免这个因素, 扩展一些常见的加密(摘要)算法支持是必不可少的.</p>
+<p>首选方案肯定使用已经成熟的库. 但是很可惜, <code>lua5.3</code>没有较为可靠并且现成的实现库可以<code>fork</code>后直接使用.</p>
+<p>而且可以用来参考的库仅有: <code>luajit</code>利用<code>ffi</code>实现的库、<code>OpenSSL</code>的实现. 然而这些无法直接或间接移植到<code>lua 5.3</code>.</p>
+<p>这是目前遇到的最坏的情况! 最终, 我只能用Lua的C API来粘合C语言的Crypt实现来完成Lua版本的crypt扩展库改造工作.</p>
+<h2 id="改造开始">改造开始</h2>
+<p>我在网上寻找一段时间后发现一个比较不错的<a href="https://www.rjek.com/luahash-0.00.tar.bz2">Lua sha实现</a>.</p>
+<p>这份代码包含<code>md5</code>、<code>sha128</code>、<code>sha384</code>、<code>sha512</code>的C实现, 其用大量的宏来完成Lua注入动作. 可见我们需要做的第一件事情就是去掉这些不易阅读的宏定义.</p>
+<p>我们知道<code>skynet</code>的<code>luaclib-src/lsha1.c</code>文件中已经存在了一份sha1实现. 那么我们可以保留sha1, 仅仅提取sha2部分的<code>sha256</code>与<code>sha512</code>的实现.</p>
+<p>sha2在改造成标准Lua Model实现后可维护性大大提升, 我们将其命名为<code>lsha2.c</code>与<code>lsha2.h</code>来描述显然再好不过. 这时候, 我们已经可以使用这些算法进行测试了.</p>
+<p>大家都知道<code>HMAC</code>是一种<code>哈希</code>算法, 目前这种<code>哈希</code>算法的<code>hmac_256</code>与<code>hmac_512</code>实现已经在很多云平台广为使用. 一个较为明显的例子就是腾讯云.</p>
+<p>在<code>lsha1.c</code>的文件内已经有了一份<code>HMAC</code>实现代码, 我们将<code>xor_str</code>算法拷贝到<code>lsha2</code>文件中. 就可以简单的完成扩展.</p>
+<p>这里需要知道的是, <code>sha128</code>与<code>sha256</code>的Block都可以使用64, 但是<code>hmac_sha512</code>的<code>block</code>的长度是<code>128</code>. 所以我们为它单独在内部多写了一份代码方便维护.</p>
+<p>参照<code>lsha1.c</code>的<code>hmac_sha128</code>实现方法扩展<code>hmac_256</code>与<code>hmac_512</code>非常简单. 基本上就是改<code>block</code>与Lua Model编写. 很快就能完成.</p>
+<p>skynet的<code>3rd</code>目录下已经支持<code>md5</code>. 虽然不知道大家怎么用的, 但是我使用起来感觉非常不便. 并且<code>crypt</code>库支持的<code>hmac64_md5</code>目前与其它语言对接也较为不便.</p>
+<p>最后我们索性上面提到的代码创建<code>lmd5.c</code>文件实现一份md5的算法, 然后参照上面的hmac算法又实现了一份<code>hmac_md5</code>. 这样能让所有算法并存于<code>crypt</code>库内部.</p>
+<p>当你看到这里! 你肯定以为, 我们的工作已经完成了! 然而这还不够, 既然已经开始动手. 那么一些常见的算法必将都要被纳入进来.</p>
+<p>我们最后尝试从<code>redis</code>的源码文件中拿到<code>crc32</code>与<code>crc64</code>的源码, 然后直接提取出来改造成为一个单独的<code>lcrc.c</code>文件并为其注入Lua C API.</p>
+<p>以上, 完成了<code>crypt</code>的基本改造.</p>
+<h2 id="改造结果">改造结果</h2>
+<p>目前测试结果在其它语言集上内容输出一致. 由于实现使用到是C语言, 性能表现方面自然强过一些lua实现. 所以不用过多考虑性能都问题.</p>
+<p>既然已经开源了一份<code>Websocket</code>实现, 那么干脆也开源这份代码吧! 至于命名就延续之前的命名: <code>skynet-lua-crypt</code>.</p>
+<h2 id="安装方法">安装方法</h2>
+<p>由于改造涉及到了skynet的<code>luaclib-src</code>内的文件修改, 所以编译方法肯定不能是普通的3rd方式就能完成编译的.</p>
+<p>而且<code>skynet</code>的一些文件内部也使用到了这个库, 我们需要直接修改<code>skynet</code>的<code>Makefile</code>文件完成这个替换动作. 这样能保证编果更加顺利.</p>
+<p>为了跟进版本. 我拉取了<code>skynet</code>的1.2版本代码进行测试, 经过我的MacBook Pro编译与<code>skynet/test/testsha.lua</code>文件测试通过并且无副作用.</p>
+<h2 id="项目地址">项目地址</h2>
+<p>项目地址在<a href="https://github.com/CandyMi/skynet-lua-crypt">这里</a>. 安装与替换方式非常简单. 基本上就是拷贝源码与替换Makefile.</p>
+<p>并且我在项目内提供了一份Makefile用于直接替换, 这在项目的<code>README</code>中都有描述. 至于为什么不提<code>pull request</code>, 只是觉得没有那个必要而已.</p>
+<p>更多详细介绍, 请参考项目Release发布介绍与README.</p>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li>
+<ul>
+<li><a href="#%E6%94%B9%E9%80%A0%E8%B5%B7%E5%9B%A0">改造起因</a></li>
+<li><a href="#%E6%94%B9%E9%80%A0%E5%BC%80%E5%A7%8B">改造开始</a></li>
+<li><a href="#%E6%94%B9%E9%80%A0%E7%BB%93%E6%9E%9C">改造结果</a></li>
+<li><a href="#%E5%AE%89%E8%A3%85%E6%96%B9%E6%B3%95">安装方法</a></li>
+<li><a href="#%E9%A1%B9%E7%9B%AE%E5%9C%B0%E5%9D%80">项目地址</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://candymi.github.io/3bo6mtxvt/">
+              <h3 class="post-title">
+                Lua Web 开发 - 利用Nginx的rewrite完成伪静态
+              </h3>
+            </a>
+          </div>
+        
+
+        
+
+        <div class="site-footer">
+  Powered by  <a href="https://github.com/CandyMi" target="_blank"> 
+  CandyMi</a>
+  <a class="rss" href="https://candymi.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

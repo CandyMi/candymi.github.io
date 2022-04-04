@@ -1,109 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://candymi.github.io</id>
-    <title>Gridea</title>
-    <updated>2022-04-04T08:36:18.446Z</updated>
+    <title>CandyMi的简笔客栈</title>
+    <updated>2022-04-04T09:20:22.030Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://candymi.github.io"/>
     <link rel="self" href="https://candymi.github.io/atom.xml"/>
-    <subtitle>温故而知新</subtitle>
+    <subtitle>此情可待成追忆, 只是当时已惘然.</subtitle>
     <logo>https://candymi.github.io/images/avatar.png</logo>
     <icon>https://candymi.github.io/favicon.ico</icon>
-    <rights>All rights reserved 2022, Gridea</rights>
+    <rights>All rights reserved 2022, CandyMi的简笔客栈</rights>
     <entry>
         <title type="html"><![CDATA[后端开发的实用技巧 (1) - 多进程的使用率监控]]></title>
-        <id>https://candymi.github.io/post/hou-duan-kai-fa-de-shi-yong-ji-qiao-1-duo-jin-cheng-de-shi-yong-lu-jian-kong/</id>
-        <link href="https://candymi.github.io/post/hou-duan-kai-fa-de-shi-yong-ji-qiao-1-duo-jin-cheng-de-shi-yong-lu-jian-kong/">
+        <id>https://candymi.github.io/ekyl2vRVa/</id>
+        <link href="https://candymi.github.io/ekyl2vRVa/">
         </link>
         <updated>2022-04-04T08:23:01.000Z</updated>
-        <content type="html"><![CDATA[<h2 id="一-前言">一、前言</h2>
-<p>后端业务在线上正常运行的期间, 使用多进程模型的框架在会分离出来固定的进程来承载不同的请求.</p>
-<p>这些进程在我们图形化的本地机器上容易实用监控, 如果在远程服务器上应该如何查看进程使用率呢?</p>
-<figure data-type="image" tabindex="1"><img src="https://candymi.github.io/post-images/1649056402661.png" alt="" loading="lazy"></figure>
-<h2 id="二-查找进程pid">二、查找进程PID</h2>
-<p>我们可以先用<code>ps -aux | grep cfadmin</code>查看到我们的进程<code>PID</code></p>
-<pre><code class="language-bash">root@iZbp18k2vy63cz9njzffe8Z:~# ps aux | grep cfadmin | grep -v grep
-root     28383  0.2  0.3  78292  7700 ?        Ssl  Jan11 267:10 ./cfadmin -d
-root@iZbp18k2vy63cz9njzffe8Z:~#
-</code></pre>
-<h2 id="三-查看指定进程">三、查看指定进程</h2>
-<p>通过上述命令的输出, 我们可以看到框架的<code>PID</code>为<code>28383</code>, 然后可以使用<code>top -p 28383 -d 0.5</code>来监控这个进程的输出, 并且我们指定了<code>-d</code>参数为每<code>0.5</code>秒刷新一次输出.</p>
-<pre><code class="language-bash">top - 15:24:33 up 427 days, 15:43,  2 users,  load average: 0.00, 0.00, 0.00
-Tasks:   1 total,   0 running,   1 sleeping,   0 stopped,   0 zombie
-%Cpu(s):  0.0 us,  0.0 sy,  0.0 ni,100.0 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st
-MiB Mem :   1914.0 total,    115.7 free,    132.3 used,   1665.9 buff/cache
-MiB Swap:      0.0 total,      0.0 free,      0.0 used.   1598.3 avail Mem
-
-  PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
-28383 root      20   0   76.5m   7.5m   4.6m S   0.0   0.4 267:11.55 cfadmin
-</code></pre>
-<p>可以看到结果如我预料的一样， 结果输出效果符合我们的预期.</p>
-<h2 id="四-多进程案例">四、多进程案例</h2>
-<p>现在我们让框架启动<code>1</code>个主进程和<code>4</code>个工作进程, 这样方便我们演示如何快速查看使用率:</p>
-<pre><code class="language-bash">root@iZbp18k2vy63cz9njzffe8Z:~/cfadmin# ./cfadmin -w 4
-[2022/04/04 15:27:53] [INFO] httpd listen: 0.0.0.0:8080
-[2022/04/04 15:27:53] [INFO] httpd Web Server Running...
-[2022/04/04 15:27:53] [INFO] httpd listen: 0.0.0.0:8080
-[2022/04/04 15:27:53] [INFO] httpd Web Server Running...
-[2022/04/04 15:27:53] [INFO] httpd listen: 0.0.0.0:8080
-[2022/04/04 15:27:53] [INFO] httpd Web Server Running...
-[2022/04/04 15:27:53] [INFO] httpd listen: 0.0.0.0:8080
-[2022/04/04 15:27:53] [INFO] httpd Web Server Running...
-</code></pre>
-<p>这时候我们通过命令行来看过滤进程名字的时候会发现有许多进程<code>PID</code>:</p>
-<pre><code class="language-bash">root@iZbp18k2vy63cz9njzffe8Z:~/cfadmin# ps aux | grep cfadmin | grep -v grep
-root       705  0.1  0.2   8680  5792 ?        Ssl  15:29   0:00 cfadmin - Manager Process : -w 4 -d
-root       706  0.0  0.3  11800  6916 ?        Sl   15:29   0:00 cfadmin - Worker Process
-root       707  0.1  0.3  11800  6756 ?        Sl   15:29   0:00 cfadmin - Worker Process
-root       708  0.1  0.3  11800  7000 ?        Sl   15:29   0:00 cfadmin - Worker Process
-root       709  0.1  0.3  11800  6884 ?        Sl   15:29   0:00 cfadmin - Worker Process
-root@iZbp18k2vy63cz9njzffe8Z:~/cfadmin#
-</code></pre>
-<p>我们可以通过使用<code>pidof cfadmin</code>来简化输出, 只获得我们想要的进程<code>PID</code>即可:</p>
-<pre><code class="language-bash">root@iZbp18k2vy63cz9njzffe8Z:~# pidof cfadmin
-709 708 707 706 705
-root@iZbp18k2vy63cz9njzffe8Z:~#
-</code></pre>
-<p>众所周知, <code>top -p</code> 只可以支持通过查看以<strong>逗号(<code>,</code>)分隔</strong>多个进程<code>PID</code>. 所以我们可以写成这样:</p>
-<pre><code class="language-bash">root@iZbp18k2vy63cz9njzffe8Z:~# top -p 709,708,707,706,705
-...
-top - 15:56:42 up 427 days, 16:15,  3 users,  load average: 0.01, 0.03, 0.00
-Tasks:   5 total,   0 running,   5 sleeping,   0 stopped,   0 zombie
-%Cpu(s):  1.0 us,  0.7 sy,  0.0 ni, 98.3 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st
-MiB Mem :   1914.0 total,    151.7 free,    141.5 used,   1620.8 buff/cache
-MiB Swap:      0.0 total,      0.0 free,      0.0 used.   1589.1 avail Mem
-
-  PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
-  709 root      20   0   11932   6616   4748 S   0.3   0.3   0:02.37 cfadmin
-  706 root      20   0   11932   6648   4780 S   0.3   0.3   0:02.31 cfadmin
-  708 root      20   0   11932   6732   4864 S   0.0   0.3   0:02.32 cfadmin
-  707 root      20   0   11932   6784   4688 S   0.0   0.3   0:02.35 cfadmin
-  705 root      20   0    8812   5884   4704 S   0.0   0.3   0:02.30 cfadmin
-</code></pre>
-<h2 id="五-简化复杂度">五、简化复杂度</h2>
-<p>在前文中我们可以看到多个进程之间还需要来格式化输入进程<code>PID</code>, 这样手动操作起来还是比较麻烦且浪费时间的. 所以, 我们决定通过<code>shell</code>来解决一些效率问题. 例如:</p>
-<pre><code class="language-bash">root@iZbp18k2vy63cz9njzffe8Z:~# pidof cfadmin | sed 's/ /,/g'
-709,708,707,706,705
-root@iZbp18k2vy63cz9njzffe8Z:~#
-</code></pre>
-<p>我们可以使用<code>sed</code>命令将<code>PID</code>输出拼接成我们需要的格式, 然后再使用<code>top -p</code>来完成监控:</p>
-<pre><code class="language-bash">root@iZbp18k2vy63cz9njzffe8Z:~# top -p `pidof cfadmin | sed 's/ /,/g'`
-...
-...
-top - 16:18:19 up 427 days, 16:37,  4 users,  load average: 0.05, 0.08, 0.03
-Tasks:   5 total,   0 running,   5 sleeping,   0 stopped,   0 zombie
-%Cpu(s):  1.1 us,  1.1 sy,  0.0 ni, 97.9 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st
-MiB Mem :   1914.0 total,    149.1 free,    143.5 used,   1621.4 buff/cache
-MiB Swap:      0.0 total,      0.0 free,      0.0 used.   1587.1 avail Mem
-
-  PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM  TIME+ COMMAND
-  709 root       20   0    11.7m   6.8m    4.7m S     1.0     0.4     0:04.39  cfadmin
-  705 root       20   0     8.6m   5.7m    4.6m S    1.0     0.3     0:04.35  cfadmin
-  708 root       20   0    11.7m   6.6m    4.8m S    0.0     0.3     0:04.33  cfadmin
-  707 root       20   0    11.7m   6.6m    4.6m S    0.0     0.3     0:04.37  cfadmin
-  706 root       20   0    11.7m   6.5m    4.7m S    0.0     0.3     0:04.32  cfadmin
-</code></pre>
-<p>这样每次只需要运行这个命令, 就可以看到所有指定进程与子进程的状态了.</p>
-]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[CentOS 6 在2020年服务到期后的备用方法]]></title>
+        <id>https://candymi.github.io/Ce1fmdNbA/</id>
+        <link href="https://candymi.github.io/Ce1fmdNbA/">
+        </link>
+        <updated>2021-01-21T09:11:38.000Z</updated>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[为skynet的crypt库扩展一些加密(摘要)算法支持]]></title>
+        <id>https://candymi.github.io/cbRl4lbfY/</id>
+        <link href="https://candymi.github.io/cbRl4lbfY/">
+        </link>
+        <updated>2020-07-03T12:52:36.000Z</updated>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Lua Web 开发 - 利用Nginx的rewrite完成伪静态]]></title>
+        <id>https://candymi.github.io/3bo6mtxvt/</id>
+        <link href="https://candymi.github.io/3bo6mtxvt/">
+        </link>
+        <updated>2020-05-11T09:08:41.000Z</updated>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[为skynet移植一个lua-websocke库]]></title>
+        <id>https://candymi.github.io/Gjlq-u1G5/</id>
+        <link href="https://candymi.github.io/Gjlq-u1G5/">
+        </link>
+        <updated>2019-06-22T08:49:23.000Z</updated>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Linux 使用unzip命令从压缩文件中解压出指定目录或文件]]></title>
+        <id>https://candymi.github.io/QAwLk9b1V/</id>
+        <link href="https://candymi.github.io/QAwLk9b1V/">
+        </link>
+        <updated>2019-06-15T09:00:22.000Z</updated>
     </entry>
 </feed>
