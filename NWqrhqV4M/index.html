@@ -1,0 +1,312 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lua 字符串迭代方式 | CandyMi的简笔客栈</title>
+<link rel="shortcut icon" href="https://candymi.github.io/favicon.ico?v=1652620372441">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://candymi.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="Lua 字符串迭代方式 | CandyMi的简笔客栈 - Atom Feed" href="https://candymi.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="最近一直有同学在私下问我关于Lua字符串迭代的方式, 我觉得有必要和大家聊一下关于为字符串迭代聊一个使用场景.
+迭代器
+如果我们使用C/C++, 那么非常简单可以使用那些数字索引的loop来完成. 且这样的迭代、比较效率也非常高. 然而AN..." />
+    <meta name="keywords" content="" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://candymi.github.io">
+  <img class="avatar" src="https://candymi.github.io/images/avatar.png?v=1652620372441" alt="">
+  </a>
+  <h1 class="site-title">
+    CandyMi的简笔客栈
+  </h1>
+  <p class="site-description">
+    此情可待成追忆, 只是当时已惘然.
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          目录
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          分类
+        </a>
+      
+    
+      
+        <a href="https://github.com/CandyMi" class="menu" target="_blank">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              Lua 字符串迭代方式
+            </h2>
+            <div class="post-info">
+              <span>
+                2022-05-14
+              </span>
+              <span>
+                5 min read
+              </span>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <p>最近一直有同学在私下问我关于<code>Lua</code>字符串迭代的方式, 我觉得有必要和大家聊一下关于为字符串迭代聊一个使用场景.</p>
+<h2 id="迭代器">迭代器</h2>
+<p>如果我们使用<code>C/C++</code>, 那么非常简单可以使用那些数字索引的<code>loop</code>来完成. 且这样的迭代、比较效率也非常高. 然而<code>ANSIC</code>字符并不能完全符合业务多变的复杂环境, 所以我们也需要考虑高级、方便的使用方法.</p>
+<p>参考其它编程语言我们可以发现, 其中有绝大部分使用的是迭代器思想. 即: 给出迭代函数, 通过循环来不断传入对象后调用迭代函数来完成. 这种方式是值得借鉴的, 即使在<code>Lua</code>内我们需要一些<code>trick</code>才能完成.</p>
+<p><code>Lua</code>内使用迭代方式目前存在以下几种使用方式:</p>
+<ol>
+<li>
+<p><code>for i = start, stop, step do ... end</code></p>
+</li>
+<li>
+<p><code>for index, value in ipairs(..) do ... end</code></p>
+</li>
+<li>
+<p><code>for ... in iterator function do ... end</code></p>
+</li>
+</ol>
+<p>如果没有规定业务级别的特殊情况, 建议大家使用第<code>1</code>种来完成. 理由当然是效率最高, 编码也非常简单易懂. 但是当你不考虑性能问题且觉得迭代需要统一使用<code>ipairs</code>完成的时候, 只需要在<code>string</code>的元方法内实现利于<code>ipairs</code>迭代<code>字符串</code>的判断即可.</p>
+<p>第<code>3</code>种方式其实我们可以通过<code>string.gmatch</code>来实现! 但是我个人并不希望使用正则或匹配模式实现, 且我希望它能提供丰富的特性来适用于更多的场景.</p>
+<h3 id="1-迭代器">1. 迭代器</h3>
+<p>既然自定义一个<code>iterator</code>才能完成我们的需求那就直接动手就好了. 首先, 我们规划了以下需求:</p>
+<ul>
+<li>
+<p>字符串必须支持<code>ANSIC</code>字符迭代与<code>UTF-8</code>字符两种.</p>
+</li>
+<li>
+<p>字符串迭代出错必须不影响流程.</p>
+</li>
+<li>
+<p>字符串迭代对性能影响不能太大.</p>
+</li>
+</ul>
+<p>现在需求知道了! 那么先定义函数来规定我们如何使用:</p>
+<pre><code class="language-lua">---comment 可以通过迭代函数逐个字符迭代
+---@param  text    string    @待迭代的内容
+---@param  u8      boolean?  @检查UTF8字符(可选, 默认为`false`)
+---@return function
+function string.iterator(text, u8)
+  -- TODO
+end
+</code></pre>
+<p>普通<code>ANSIC</code>字符迭代我们可以直接<code>string.sub</code>分割即可, <code>UTF-8</code>字符则可以使用<code>utf8</code>可以来根据位置与数字编码来确定. 最后我们可以根据<strong>开始位置</strong>加上<strong>每次迭代</strong>字符的位置计算是否到达字符串结尾. 这样我们的迭代器的功能就算完成了, 大致的伪代码如下:</p>
+<pre><code class="language-lua">if u8 then
+  -- call utf8.code got code.
+  -- call utf8.char got char.
+  -- ret
+end
+-- sub (text, index, index)
+-- ret
+</code></pre>
+<p>字符串内出现<strong>中文</strong>应该并不少见, 但是我们在迭代器中如果抛出捕获和调试代码会变得非常难看. 如果有必要, 我们在迭代器内迭代<code>UTF-8</code>字符串的时候可以这样操作:</p>
+<pre><code class="language-lua">if not valid_u8_char then
+  return index, false, char
+end
+return index, true, char
+</code></pre>
+<p>第<code>1</code>个返回值是<code>utf8</code>字符串的索引位置, 第<code>2</code>个值在按<code>utf8</code>字符串规则迭代时发现了非法字符则为<code>false</code>反之为<code>true</code>. 第<code>3</code>个返回值就是实际字符. 这种方式可以让开发者在循环期间就能判断, 并且拿到合适的值后再进行选择性跳出(或忽略).  最后我们来看看示例代码与结果:</p>
+<pre><code class="language-lua">local s = &quot;我是谁？\x80\x80&quot;
+
+for index, valid, str in string.iterator(s, true) do
+  print(index, valid, str)
+end
+</code></pre>
+<pre><code class="language-bash">1       true    我
+4       true    是
+7       true    谁
+10      true    ？
+13      false   �
+14      false   �
+</code></pre>
+<p>可以看到结果完全满足我们的构想.</p>
+<h3 id="2-索引">2. 索引</h3>
+<p>众所周知, <code>ipairs</code> 在5.3开始就废弃了<code>__ipairs</code>原方法而使用<code>__index</code>来索引迭代. 而<code>string</code>并未完成实际意义上的<strong>数字索引下标查找字符</strong>的特性. 那么, 我们就只能通过重写<code>__index</code>方法来完成了.</p>
+<p>首先我们必须通过<code>getmetatable</code>拿到<code>string</code>的元表, 这样就能<code>hook</code>所有字符串向上索引的操作. 然后预留好我们所需的代码位置, 在条件不满足时交给<code>string</code>来完成后续操作.</p>
+<pre><code class="language-lua">getmetatable(&quot;&quot;).__index = function (text, key)
+  -- hook start
+  -- ...
+  -- hook stop
+  return string[key]
+end
+</code></pre>
+<p>最后我们来补齐中间的代码:</p>
+<pre><code class="language-lua">if key == 'integer' then
+  if key &gt; text.len then
+    -- return nil that let's stoped
+  end
+  -- sub(text, key, key)
+  -- ret 
+end
+</code></pre>
+<p>实现代码完成! 现在我们可以尝试编写一些示例来测试:</p>
+<pre><code class="language-lua">local s = &quot;abcdefg&quot;
+
+for index, value in ipairs(s) do
+  print(index, value)
+end
+</code></pre>
+<pre><code class="language-bash">1       a
+2       b
+3       c
+4       d
+5       e
+6       f
+7       g
+</code></pre>
+<h2 id="最后">最后</h2>
+<p>之前所在项目内并无对迭代大量字符串的需求, 所以<code>C API</code>来完成上述功能并不是那么必要.</p>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li>
+<ul>
+<li><a href="#%E8%BF%AD%E4%BB%A3%E5%99%A8">迭代器</a>
+<ul>
+<li><a href="#1-%E8%BF%AD%E4%BB%A3%E5%99%A8">1. 迭代器</a></li>
+<li><a href="#2-%E7%B4%A2%E5%BC%95">2. 索引</a></li>
+</ul>
+</li>
+<li><a href="#%E6%9C%80%E5%90%8E">最后</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://candymi.github.io/ekyl2vRVa/">
+              <h3 class="post-title">
+                后端开发的实用技巧 (1) - 多进程的使用率监控
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '810ca3c7b6c54a525f15',
+    clientSecret: '210f1a668d58752f8b47dcfd281fa003e5398d8b',
+    repo: 'candymi.github.io',
+    owner: 'CandyMi',
+    admin: ['CandyMi'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  Powered by  <a href="https://github.com/CandyMi" target="_blank"> 
+  CandyMi</a>
+  <a class="rss" href="https://candymi.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>
